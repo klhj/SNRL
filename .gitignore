@@ -1,0 +1,18 @@
+# 编译文件
+build/
+devel/
+*.o
+*.so
+
+# Python
+__pycache__/
+*.pyc
+venv/
+.env
+
+# 系统文件
+.DS_Store
+
+# IDE 配置
+.vscode/
+.idea/

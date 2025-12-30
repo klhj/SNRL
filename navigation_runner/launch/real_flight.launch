@@ -1,0 +1,73 @@
+<launch>
+    <arg name="fcu_url" default="/dev/ttyACM0:57600" />
+    <arg name="gcs_url" default="udp://@192.168.1.111:14550" />
+    
+    <include file="$(find mavros)/launch/px4.launch">
+        <arg name="fcu_url" value="$(arg fcu_url)" />
+        <arg name="gcs_url" value="$(arg gcs_url)" />
+        
+        <param name="local_position/tf/send" value="false"/> 
+        <param name="local_position/frame_id" value="map"/>
+        <param name="local_position/tf/frame_id" value="map"/>
+        <param name="local_position/tf/child_frame_id" value="base_link"/>
+    </include>
+
+    <include file="$(find realsense2_camera)/launch/rs_camera.launch">
+        <arg name="depth_width" value="424"/>
+        <arg name="depth_height" value="240"/>
+        <arg name="depth_fps" value="15"/>
+        
+        <arg name="color_width" value="424"/>
+        <arg name="color_height" value="240"/>
+        <arg name="color_fps" value="15"/>
+        
+        <arg name="align_depth" value="true"/> 
+        
+        <arg name="enable_pointcloud" value="false"/>
+        <arg name="enable_gyro" value="false"/>
+        <arg name="enable_accel" value="false"/>
+        <arg name="enable_sync" value="false"/>
+        
+        <arg name="initial_reset" value="true"/>
+    </include>
+
+    <node pkg="depthimage_to_laserscan" type="depthimage_to_laserscan" name="depthimage_to_laserscan">
+        <remap from="image" to="/camera/aligned_depth_to_color/image_raw"/>
+        <remap from="scan" to="/scan"/> 
+        <param name="output_frame_id" value="camera_link"/>
+        <param name="range_min" value="0.3"/>
+        <param name="range_max" value="5.0"/> 
+        <param name="scan_height" value="5"/> 
+    </node>
+
+    <node pkg="tf2_ros" type="static_transform_publisher" name="base_to_camera"
+          args="0.1 0 0 0 0 0 base_link camera_link" />
+
+    <group ns="onboard_detector">
+        <rosparam file="$(find onboard_detector)/cfg/detector_param.yaml" command="load" />
+        
+        <param name="localization_mode" value="0"/> 
+        <param name="pose_topic" value="/mavros/local_position/pose" />
+        
+        <param name="depth_image_topic" value="/camera/aligned_depth_to_color/image_raw" />
+        <param name="aligned_depth_image_topic" value="/camera/aligned_depth_to_color/image_raw" />
+        <param name="color_image_topic" value="/camera/color/image_raw" />
+        
+        <param name="image_cols" value="424"/>
+        <param name="image_rows" value="240"/>
+        
+        <rosparam param="depth_intrinsics">[212.0, 212.0, 212.0, 120.0]</rosparam>
+        <rosparam param="color_intrinsics">[212.0, 212.0, 212.0, 120.0]</rosparam>
+    </group>
+    
+    <node pkg="onboard_detector" type="detector_node" name="detector_node" output="screen" />
+
+    <node pkg="navigation_runner" type="navigation_node.py" name="navigation_runner" output="screen" />
+
+    <node pkg="navigation_runner" type="tf_broadcaster.py" name="px4_tf_broadcaster" output="screen" />
+    <node pkg="navigation_runner" type="hud_visualizer.py" name="hud_visualizer" output="screen" />
+    <node pkg="image_transport" type="republish" name="hud_compressor" args="raw in:=/camera/hud_view compressed out:=/camera/hud_view">
+    </node>
+    
+    <node pkg="navigation_runner" type="uwb_anchor.py" name="uwb_anchor_node" output="screen" />
+    </launch>
