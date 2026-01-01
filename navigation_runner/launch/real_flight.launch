@@ -23,7 +23,7 @@
         
         <arg name="align_depth" value="true"/> 
         
-        <arg name="enable_pointcloud" value="false"/>
+        <arg name="enable_pointcloud" value="true"/>
         <arg name="enable_gyro" value="false"/>
         <arg name="enable_accel" value="false"/>
         <arg name="enable_sync" value="false"/>

@@ -257,7 +257,33 @@ class Navigation:
         return output["agents", "action"]
 
     def vis_callback(self, event):
-        if self.goal_received and self.has_action:
+        # === 1. [新增] 显示目标点 (Green Sphere) ===
+        # 只要接收到了目标点，就一直显示，方便确认点对了没有
+        if self.goal_received and self.goal is not None:
+            g_msg = MarkerArray()
+            gm = Marker()
+            gm.header.frame_id = "map" # 确保和你的 goal frame 一致
+            gm.header.stamp = rospy.Time.now()
+            gm.ns = "goal"
+            gm.id = 0
+            gm.type = Marker.SPHERE
+            gm.action = Marker.ADD
+            
+            # 使用保存的目标位置
+            gm.pose.position.x = self.goal.pose.position.x
+            gm.pose.position.y = self.goal.pose.position.y
+            gm.pose.position.z = self.goal.pose.position.z
+            
+            # [修复] 必须给一个合法的四元数，否则 RViz 会报警告
+            gm.pose.orientation.w = 1.0
+            
+            gm.scale.x = 0.5; gm.scale.y = 0.5; gm.scale.z = 0.5
+            gm.color.a = 0.8; gm.color.r = 0.0; gm.color.g = 1.0; gm.color.b = 0.0 # 绿色
+            g_msg.markers.append(gm)
+            self.goal_vis_pub.publish(g_msg)
+
+        # === 2. [修复] 显示速度指令 (Red Arrow) ===
+        if self.has_action: 
             c_msg = MarkerArray()
             cm = Marker()
             cm.header.frame_id = "map"
@@ -266,14 +292,22 @@ class Navigation:
             cm.id = 0
             cm.type = Marker.ARROW
             cm.action = Marker.ADD
+            
+            # [修复] 消除 "uninitialized quaternions" 警告
+            cm.pose.orientation.w = 1.0
+            
             p_start = Point(*self.current_pos)
             cm.points.append(p_start)
             p_end = Point()
-            p_end.x = self.current_pos[0] + self.cmd_vel_world[0]
-            p_end.y = self.current_pos[1] + self.cmd_vel_world[1]
-            p_end.z = self.current_pos[2] + self.cmd_vel_world[2]
+            
+            # 箭头长度比例
+            scale_visual = 1.0 
+            p_end.x = self.current_pos[0] + self.cmd_vel_world[0] * scale_visual
+            p_end.y = self.current_pos[1] + self.cmd_vel_world[1] * scale_visual
+            p_end.z = self.current_pos[2] + self.cmd_vel_world[2] * scale_visual
             cm.points.append(p_end)
+            
             cm.scale.x = 0.05; cm.scale.y = 0.1; cm.scale.z = 0.1
-            cm.color.a = 1.0; cm.color.r = 0.0; cm.color.g = 1.0; cm.color.b = 0.0
+            cm.color.a = 1.0; cm.color.r = 1.0; cm.color.g = 0.0; cm.color.b = 0.0 # 红色
             c_msg.markers.append(cm)
             self.cmd_vis_pub.publish(c_msg)
